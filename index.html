@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="format-detection" content="telephone=no">
+<title>页面提示</title>
+<style>
+    * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+        background: #fff;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+        color: #333;
+    }
+    .wrap {
+        width: 100%;
+        max-width: 340px;
+        text-align: center;
+    }
+    .logo {
+        width: 64px; height: 64px;
+        margin: 0 auto 24px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        display: flex; align-items: center; justify-content: center;
+    }
+    .logo svg { width: 34px; height: 34px; color: #fff; }
+    h1 { font-size: 18px; font-weight: 600; margin-bottom: 10px; }
+    .desc { font-size: 13px; color: #888; line-height: 1.7; margin-bottom: 28px; }
+    .countdown { font-size: 14px; color: #667eea; margin-bottom: 20px; }
+    .countdown b { color: #764ba2; }
+    .btn-main {
+        display: block;
+        width: 100%;
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        color: #fff;
+        border: none;
+        border-radius: 12px;
+        padding: 14px 0;
+        font-size: 16px;
+        font-weight: 500;
+        cursor: pointer;
+        margin-bottom: 12px;
+        box-shadow: 0 6px 16px rgba(102,126,234,.3);
+    }
+    .btn-main:active { transform: scale(.98); }
+    .btn-copy {
+        display: block;
+        width: 100%;
+        background: #f5f7fa;
+        color: #4a5568;
+        border: none;
+        border-radius: 12px;
+        padding: 13px 0;
+        font-size: 14px;
+        font-weight: 400;
+        cursor: pointer;
+    }
+    .tip {
+        margin-top: 20px;
+        font-size: 12px;
+        color: #a0aec0;
+        line-height: 1.8;
+    }
+    .link-display {
+        background: #f5f7fa;
+        border-radius: 8px;
+        padding: 10px 12px;
+        font-size: 11px;
+        color: #97a0af;
+        word-break: break-all;
+        margin-bottom: 20px;
+        line-height: 1.4;
+        max-height: 50px;
+        overflow: hidden;
+    }
+    .longpress-overlay {
+        display: none;
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(0,0,0,.5);
+        z-index: 9999;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+    }
+    .longpress-overlay.show { display: flex; }
+    .longpress-circle {
+        width: 120px; height: 120px;
+        border-radius: 50%;
+        border: 4px solid rgba(255,255,255,.3);
+        border-top-color: #fff;
+        animation: spin 1s linear infinite;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #fff;
+        font-size: 14px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .longpress-text { color: #fff; margin-top: 20px; font-size: 14px; }
+    .hidden { display: none !important; }
+    .frame-wrap { position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 1; background: #fff; }
+    .frame-wrap iframe { width: 100%; height: 100%; border: 0; display: block; }
+    .fab {
+        position: fixed; right: 14px; bottom: 84px; z-index: 3;
+        display: flex; align-items: center; gap: 6px;
+        background: rgba(0,0,0,.55); color: #fff;
+        border-radius: 24px; padding: 9px 14px; font-size: 13px;
+        box-shadow: 0 2px 10px rgba(0,0,0,.3); cursor: pointer;
+        user-select: none; -webkit-user-select: none;
+    }
+    .fab .menu { display: none; }
+    .fab.open .menu { display: flex; align-items: center; gap: 10px; }
+    .fab .ttl { display: flex; align-items: center; gap: 6px; }
+    .fab a, .fab button {
+        color: #fff; background: rgba(255,255,255,.18); border: 1px solid rgba(255,255,255,.25);
+        padding: 5px 10px; border-radius: 14px; font-size: 12px; white-space: nowrap; cursor: pointer;
+        text-decoration: none;
+    }
+</style>
+</head>
+<body>
+<div class="wrap">
+    <div class="logo">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 22s8-3 8-10V5l-8-3-8 3v7c0 7 8 10 8 10z"/>
+            <path d="M9 12l2 2 4-4"/>
+        </svg>
+    </div>
+    <h1 id="guideTitle">页面提示</h1>
+    <p class="desc" id="guideDesc">请点右上角 <b>···</b> 选择「在浏览器打开」</p>
+    <div class="countdown" id="countdown" style="display:none"></div>
+    <div class="link-display" id="linkDisplay"></div>
+    <button class="btn-main" id="btnJump">复制链接，到浏览器打开</button>
+    <button class="btn-copy" id="btnCopy">复制链接到浏览器打开</button>
+    <p class="tip">提示：请复制链接后在手机浏览器中打开查看</p>
+</div>
+
+<div class="longpress-overlay" id="longpressOverlay">
+    <div class="longpress-circle">长按中...</div>
+    <div class="longpress-text">请在新页面打开后松开</div>
+</div>
+
+<script>
+(function () {
+    function getQueryParam(name) {
+        var m = new RegExp('[?&]' + name + '=([^&]*)').exec(location.search);
+        return m ? m[1] : '';
+    }
+    function bytesToUtf8(bin) {
+        try {
+            return decodeURIComponent(Array.prototype.map.call(bin, function (ch) {
+                return '%' + ('00' + ch.charCodeAt(0).toString(16)).slice(-2);
+            }).join(''));
+        } catch (e) { return bin; }
+    }
+    function b64decode(s) {
+        while (s.length % 4 !== 0) s += '=';
+        try { return bytesToUtf8(atob(s)); } catch (e) { return null; }
+    }
+    function decodeTarget(enc) {
+        if (!enc) return '';
+        var d = b64decode(enc);
+        if (d === null || d === '') {
+            d = b64decode(enc.replace(/-/g, '+').replace(/_/g, '/'));
+        }
+        if (d === null || d === '') {
+            try {
+                var dec = decodeURIComponent(enc);
+                if (dec !== enc) {
+                    d = b64decode(dec);
+                    if (d === null || d === '') d = b64decode(dec.replace(/-/g, '+').replace(/_/g, '/'));
+                }
+            } catch (e) {}
+        }
+        if (d && /^https?:\/\//i.test(d)) return d;
+        return '';
+    }
+
+    var enc = getQueryParam('c');
+    var target = decodeTarget(enc);
+    var iframeTimeout = null;
+
+    var shieldUrl = location.origin + location.pathname + location.search;
+
+    if (target && /^http:\/\//i.test(target)) {
+        target = target.replace(/^http:\/\//i, 'https://');
+    }
+
+    var ua = navigator.userAgent || '';
+    var inWeChat = /MicroMessenger/i.test(ua);
+    var inQQ = /MQQBrowser/i.test(ua) || / QQ\//i.test(ua) || /^QQ\//i.test(ua);
+
+    if (!target) {
+        document.title = '链接失效';
+        var w = document.querySelector('.wrap');
+        w.innerHTML = '<h1>链接参数缺失或无效</h1><p style="color:#888;margin-top:12px">请从原分享渠道重新获取链接。</p>';
+        return;
+    }
+
+    if (inWeChat || inQQ || !/^https:\/\//i.test(target)) {
+        redirNormal();
+        return;
+    }
+
+    var fw = document.createElement('div');
+    fw.className = 'frame-wrap';
+    var ifr = document.createElement('iframe');
+    ifr.src = target;
+    ifr.setAttribute('allow', 'fullscreen');
+    iframeTimeout = setTimeout(function () {
+        try { window.location.replace(target); } catch (e) {}
+    }, 12000);
+    ifr.onload = function () {
+        if (iframeTimeout) clearTimeout(iframeTimeout);
+    };
+    fw.appendChild(ifr);
+    document.body.appendChild(fw);
+    return;
+
+    function redirNormal() {
+        if (!inWeChat && !inQQ) {
+            try { window.location.replace(target); } catch (e) {}
+            setTimeout(function () { window.location.href = target; }, 300);
+            document.querySelector('.wrap').innerHTML = '<p>正在跳转...</p>';
+            return;
+        }
+        showGuide();
+    }
+    function showGuide() {
+        var $ = function (id) { return document.getElementById(id); };
+        if (inQQ) {
+            $('guideTitle').textContent = '请在浏览器中打开';
+            $('guideDesc').innerHTML = '已检测到在 QQ 内打开页面<br>请点击下方按钮复制链接，<br>然后打开手机浏览器粘贴访问';
+        } else {
+            $('guideTitle').textContent = '页面提示';
+            $('guideDesc').innerHTML = '请点右上角 <b>···</b> 选择「在浏览器打开」';
+        }
+        $('linkDisplay').textContent = shieldUrl;
+        $('btnJump').addEventListener('click', function () { copyToClipboard(shieldUrl); });
+        $('btnCopy').addEventListener('click', function () { copyToClipboard(shieldUrl); });
+    }
+
+    function copyToClipboard(text) {
+        function fallback() {
+            var ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.position = 'fixed';
+            ta.style.left = '-9999px';
+            document.body.appendChild(ta);
+            ta.select();
+            try { document.execCommand('copy'); } catch (e) {}
+            document.body.removeChild(ta);
+            showToast('链接已复制，请在浏览器中打开');
+        }
+        if (navigator.clipboard && window.isSecureContext) {
+            navigator.clipboard.writeText(text).then(function () {
+                showToast('链接已复制，请在浏览器中打开');
+            }).catch(fallback);
+        } else { fallback(); }
+    }
+
+    function showToast(msg) {
+        var t = $('toast');
+        if (!t) {
+            t = document.createElement('div');
+            t.id = 'toast';
+            t.style.cssText = 'position:fixed;left:50%;bottom:80px;transform:translateX(-50%);background:rgba(0,0,0,.78);color:#fff;padding:10px 18px;border-radius:24px;font-size:14px;z-index:9999;max-width:80%;white-space:nowrap;';
+            document.body.appendChild(t);
+        }
+        t.textContent = msg;
+        t.style.display = 'block';
+        setTimeout(function () { t.style.display = 'none'; }, 2200);
+    }
+})();
+</script>
+</body>
+</html>
